@@ -1,9 +1,15 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import numpy as np
+import pandas as pd
 import pickle
 import traceback  # To print errors in detail
 
 app = Flask(__name__)
+# Load Titanic dataset
+df = pd.read_csv("Titanic-Dataset.csv")
+
+# Convert DataFrame to a list of dictionaries for easy manipulation
+data = df.to_dict(orient="records")
 
 # Load trained model
 with open("classifier.pkl", "rb") as pickle_in:
@@ -44,6 +50,27 @@ def predict_titanic():
         # Print error stack trace for debugging
         print("Error:", traceback.format_exc())
         return f"Error: {str(e)}", 500
+
+@app.route('/predict_file',methods=["POST"])
+def predict_titanic_post():
+    df_test = pd.read_csv(request.files.get("file"))
+    prediction = classifier.predict(df_test)
+
+    return str(list(prediction))
+
+
+@app.route('/titanic/<string:ticket>', methods=['DELETE'])
+def delete_passenger(ticket):
+    global data
+    # Find passenger index
+    passenger_index = next((index for (index, d) in enumerate(data) if d["Ticket"] == ticket), None)
+
+    if passenger_index is None:
+        return jsonify({"error": "Passenger not found"}), 404
+
+    # Remove from list
+    deleted_passenger = data.pop(passenger_index)
+    return jsonify({"message": "Passenger deleted successfully", "passenger": deleted_passenger}), 200
 
 
 if __name__ == "__main__":
